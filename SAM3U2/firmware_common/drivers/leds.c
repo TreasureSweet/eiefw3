@@ -237,6 +237,8 @@ Promises:
 void LedOff(LedNumberType eLED_)
 {
   u32 *pu32ClearAddress;
+  
+  pu32ClearAddress = 0;
 
   /* Configure set and clear addresses */
   if(Leds_asLedArray[eLED_].eActiveState == LED_ACTIVE_HIGH)
