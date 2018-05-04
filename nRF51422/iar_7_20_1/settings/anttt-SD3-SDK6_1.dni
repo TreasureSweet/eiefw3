@@ -20,7 +20,7 @@ Stop=1
 Freq=10000000
 MultiCoreRunAll=1
 [DebugChecksum]
-Checksum=2063460896
+Checksum=-2136380203
 [CodeCoverage]
 Enabled=_ 0
 [Exceptions]
@@ -29,7 +29,7 @@ StopOnThrow=_ 0
 [CallStack]
 ShowArgs=0
 [Disassembly]
-MixedMode=1
+MixedMode=0
 [JLinkDriver]
 CStepIntDis=_ 0
 TraceBufferSize=0x00010000
@@ -52,6 +52,9 @@ ITMportsEnable=0
 ITMportsTermIO=0
 ITMportsLogFile=0
 ITMlogFile=$PROJ_DIR$\ITM.log
+[watch_formats]
+Fmt0={W}2:u32Test	4	0
+Fmt1={W}3:u8Count	3	0
 [SWOTraceWindow]
 PcSampling=0
 InterruptLogs=0

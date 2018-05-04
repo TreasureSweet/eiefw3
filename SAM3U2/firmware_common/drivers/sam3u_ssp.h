@@ -47,7 +47,7 @@ typedef struct
   u8** ppu8RxNextByte;                /* Pointer to buffer location where next received byte will be placed (SPI_SLAVE_FLOW_CONTROL only) */
   u16 u16RxBufferSize;                /* Size of receive buffer in bytes */
   u16 u16RxBytes;                     /* Number of bytes to receive (DMA transfers) */
-  u8 u8PeripheralId;                  /* Simple peripheral ID number */
+  u8 u8PeripheralId;                  /* 0x0f */
   u8 u8Pad;                           /* Preserve 4-byte alignment */
   u16 u16Pad;                         /* Preserve 4-byte alignment */
   MessageType* psTransmitBuffer;      /* Pointer to the transmit message struct linked list */

@@ -53,7 +53,6 @@ void AntttRunActiveState(void);
 static void AntttSM_Idle(void);
 
 
-
 #endif /* __ANTTT_H */
 
 

@@ -57,9 +57,15 @@ Requires:
 Promises:
 */
 void AntttInitialize(void)
-{
-  Anttt_pfnStateMachine = AntttSM_Idle;
-  
+{	
+	if(1)
+	{
+		Anttt_pfnStateMachine = AntttSM_Idle;
+	}
+	else
+	{
+		while(1);
+	}
 } /* end AntttInitialize() */
 
 
@@ -97,9 +103,8 @@ State: AntttSM_Idle
 */
 static void AntttSM_Idle(void)
 {
-    
+	
 } 
-
 
 
 /*--------------------------------------------------------------------------------------------------------------------*/

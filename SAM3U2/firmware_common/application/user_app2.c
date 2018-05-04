@@ -45,7 +45,8 @@ All Global variable names shall start with "G_<type>UserApp2"
 ***********************************************************************************************************************/
 /* New variables */
 volatile u32 G_u32UserApp2Flags;                          /*!< @brief Global state flags */
-
+u8 u8RxBuffer;
+u8 *pu8RxNextByte;
 
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* Existing variables (defined in other files -- should all contain the "extern" keyword) */
@@ -92,8 +93,23 @@ Promises:
 */
 void UserApp2Initialize(void)
 {
+	pu8RxNextByte = &u8RxBuffer + 1;
+	
+	SspConfigurationType US2_SspConfig;
+	SspPeripheralType *pSsp;
+	US2_SspConfig.SspPeripheral = USART2;
+	US2_SspConfig.pCsGpioAddress = AT91C_BASE_PIOB;
+	US2_SspConfig.u32CsPin = PB_22_ANT_USPI2_CS;
+	US2_SspConfig.eBitOrder = MSB_FIRST;
+	US2_SspConfig.fnSlaveRxFlowCallback = UserApp2SM_RX_CB;
+	US2_SspConfig.fnSlaveTxFlowCallback = UserApp2SM_TX_CB;
+//	US2_SspConfig.pu8RxBufferAddress = &u8RxBuffer;
+//	US2_SspConfig.ppu8RxNextByte = &pu8RxNextByte;
+	US2_SspConfig.u16RxBufferSize = 2;
+	
+	pSsp = SspRequest(&US2_SspConfig);
   /* If good initialization, set state to Idle */
-  if( 1 )
+  if( pSsp )
   {
     UserApp2_pfStateMachine = UserApp2SM_Idle;
   }
@@ -140,7 +156,7 @@ State Machine Function Definitions
 /* What does this state do? */
 static void UserApp2SM_Idle(void)
 {
-    
+    AT91C_BASE_US2->US_THR = 0x32;
 } /* end UserApp2SM_Idle() */
      
 
@@ -151,7 +167,26 @@ static void UserApp2SM_Error(void)
   
 } /* end UserApp2SM_Error() */
 
+/* UserApp2SM_RX_CB */
+static void UserApp2SM_RX_CB(void)
+{
+	static u8 u8Test = 0xFF;
+	u8Test = AT91C_BASE_US2->US_RHR;
+	
+	if(AT91C_BASE_PIOB->PIO_ODSR & PB_17_LED_YLW)
+	{
+		AT91C_BASE_PIOB->PIO_CODR = PB_17_LED_YLW;
+	}
+	else
+	{
+		AT91C_BASE_PIOB->PIO_SODR = PB_17_LED_YLW;
+	}
+} /* end UserApp2SM_RX_CB */
 
+/* UserApp2SM_TX_CB */
+static void UserApp2SM_TX_CB(void)
+{
+} /* end UserApp2SM_TX_CB */
 
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* End of File                                                                                                        */

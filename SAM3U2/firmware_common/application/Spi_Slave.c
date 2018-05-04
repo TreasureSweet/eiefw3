@@ -1,21 +1,6 @@
 /*!*********************************************************************************************************************
-@file user_app1.c                                                                
-@brief User's tasks / applications are written here.  This description
-should be replaced by something specific to the task.
-
-----------------------------------------------------------------------------------------------------------------------
-To start a new task using this user_app1 as a template:
- 1. Copy both user_app1.c and user_app1.h to the Application directory
- 2. Rename the files yournewtaskname.c and yournewtaskname.h
- 3. Add yournewtaskname.c and yournewtaskname.h to the Application Include and Source groups in the IAR project
- 4. Use ctrl-h (make sure "Match Case" is checked) to find and replace all instances of "user_app1" with "yournewtaskname"
- 5. Use ctrl-h to find and replace all instances of "UserApp1" with "YourNewTaskName"
- 6. Use ctrl-h to find and replace all instances of "USER_APP1" with "YOUR_NEW_TASK_NAME"
- 7. Add a call to YourNewTaskNameInitialize() in the init section of main
- 8. Add a call to YourNewTaskNameRunActiveState() in the Super Loop section of main
- 9. Update yournewtaskname.h per the instructions at the top of yournewtaskname.h
-10. Delete this text (between the dashed lines) and update the Description below to describe your task
-----------------------------------------------------------------------------------------------------------------------
+@file Spi_Slave.c                                                                
+@brief Functions for spi slave
 
 ------------------------------------------------------------------------------------------------------------------------
 GLOBALS
@@ -31,8 +16,7 @@ PUBLIC FUNCTIONS
 - NONE
 
 PROTECTED FUNCTIONS
-- void UserApp1Initialize(void)
-- void UserApp1RunActiveState(void)
+- NONE
 
 
 **********************************************************************************************************************/
@@ -41,11 +25,10 @@ PROTECTED FUNCTIONS
 
 /***********************************************************************************************************************
 Global variable definitions with scope across entire project.
-All Global variable names shall start with "G_<type>UserApp1"
+All Global variable names shall start with "G_<type>SpiSlave"
 ***********************************************************************************************************************/
 /* New variables */
-volatile u32 G_u32UserApp1Flags;                          /*!< @brief Global state flags */
-
+volatile u32 G_u32SpiSlaveFlags;                          /*!< @brief Global state flags */
 
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* Existing variables (defined in other files -- should all contain the "extern" keyword) */
@@ -57,10 +40,9 @@ extern volatile u32 G_u32ApplicationFlags;                /*!< @brief From main.
 
 /***********************************************************************************************************************
 Global variable definitions with scope limited to this local application.
-Variable names shall start with "UserApp1_<type>" and be declared as static.
+Variable names shall start with "SpiSlave_<type>" and be declared as static.
 ***********************************************************************************************************************/
-static fnCode_type UserApp1_pfStateMachine;               /*!< @brief The state machine function pointer */
-//static u32 UserApp1_u32Timeout;                           /*!< @brief Timeout counter used across states */
+static fnCode_type SpiSlave_pfStateMachine;               /*!< @brief The state machine function pointer */
 
 
 /**********************************************************************************************************************
@@ -70,13 +52,33 @@ Function Definitions
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*! @publicsection */                                                                                            
 /*--------------------------------------------------------------------------------------------------------------------*/
+/*
+- Name: SpiGetRHR(void)
+- Function:
+   Get DATA in RHR register and return u8 data and set EVENTS_READY to 0
+
+- Can only return one data at once
+
+- If no data or occurs an error, return 0xFF.
+   You need to check if the data is 0xFF or there occurs an error.
+*/
+u8 SpiGetRHR(void)
+{
+	if(RX_READY)
+	{
+		return ( 0xFF & AT91C_BASE_US2->US_RHR );
+	}
+	
+	return 0xFF;
+} /* end SpiGetRXD(void) */
+
 
 /*--------------------------------------------------------------------------------------------------------------------*/
 /*! @protectedsection */                                                                                            
 /*--------------------------------------------------------------------------------------------------------------------*/
 
 /*!--------------------------------------------------------------------------------------------------------------------
-@fn void UserApp1Initialize(void)
+@fn void SpiSlaveInitialize(void)
 
 @brief
 Initializes the State Machine and its variables.
@@ -90,24 +92,36 @@ Promises:
 - NONE
 
 */
-void UserApp1Initialize(void)
+void SpiSlaveInitialize(void)
 {
+	/* USART2 INIT */
+	AT91C_BASE_US2->US_CR = ANT_US_CR_INIT;
+	AT91C_BASE_US2->US_MR = ANT_US_MR_INIT;
+	AT91C_BASE_US2->US_IER = ANT_US_IER_INIT;
+	AT91C_BASE_US2->US_IDR = ANT_US_IDR_INIT;
+	AT91C_BASE_US2->US_BRGR = ANT_US_BRGR_INIT;
+	
+	/* MRDY & SRDY INIT */
+	AT91C_BASE_PIOB->PIO_SODR = (PB_23_ANT_MRDY | PB_24_ANT_SRDY);
+	
 	/* If good initialization, set state to Idle */
 	if( 1 )
 	{
-		UserApp1_pfStateMachine = UserApp1SM_Idle;
+		LedOn(YELLOW);
+		AT91C_BASE_US2->US_THR = 0xFF;
+		SpiSlave_pfStateMachine = SpiSlaveSM_Sync;
 	}
 	else
 	{
 		/* The task isn't properly initialized, so shut it down and don't run */
-		UserApp1_pfStateMachine = UserApp1SM_Error;
+		SpiSlave_pfStateMachine = SpiSlaveSM_Error;
 	}
 
-} /* end UserApp1Initialize() */
+} /* end SpiSlaveInitialize() */
 
   
 /*!----------------------------------------------------------------------------------------------------------------------
-@fn void UserApp1RunActiveState(void)
+@fn void SpiSlaveRunActiveState(void)
 
 @brief Selects and runs one iteration of the current state in the state machine.
 
@@ -121,11 +135,11 @@ Promises:
 - Calls the function to pointed by the state machine function pointer
 
 */
-void UserApp1RunActiveState(void)
+void SpiSlaveRunActiveState(void)
 {
-  UserApp1_pfStateMachine();
+	SpiSlave_pfStateMachine();
 
-} /* end UserApp1RunActiveState */
+} /* end SpiSlaveRunActiveState */
 
 
 /*------------------------------------------------------------------------------------------------------------------*/
@@ -138,18 +152,55 @@ State Machine Function Definitions
 **********************************************************************************************************************/
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* What does this state do? */
-static void UserApp1SM_Idle(void)
+static void SpiSlaveSM_Idle(void)
 {
+	AT91C_BASE_US2->US_THR = 0x16;
 	
-} /* end UserApp1SM_Idle() */
-     
+	if(RX_READY)
+	{
+		SpiSlave_pfStateMachine = UserApp2SM_RX_CB;
+	}
+} /* end SpiSlaveSM_Idle() */
+
+
+/* UserApp2SM_RX_CB */
+static void UserApp2SM_RX_CB(void)
+{
+	SpiGetRHR();
+	
+	if(AT91C_BASE_PIOB->PIO_ODSR & PB_18_LED_BLU)
+	{
+		AT91C_BASE_PIOB->PIO_CODR = PB_18_LED_BLU;
+	}
+	else
+	{
+		AT91C_BASE_PIOB->PIO_SODR = PB_18_LED_BLU;
+	}
+	
+	SpiSlave_pfStateMachine = SpiSlaveSM_Idle;
+} /* end UserApp2SM_RX_CB() */
+
+/* Wait for Spi slave sync */
+static void SpiSlaveSM_Sync(void)
+{
+	if(RX_READY)
+	{
+		SpiGetRHR();
+		LedOff(YELLOW);
+		AT91C_BASE_PIOB->PIO_CODR = PB_23_ANT_MRDY;
+		SpiSlave_pfStateMachine = SpiSlaveSM_Idle;
+	}
+	
+} /* end SpiSlaveSM_Sync() */
+
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Handle an error */
-static void UserApp1SM_Error(void)          
+static void SpiSlaveSM_Error(void)          
 {
 	
-} /* end UserApp1SM_Error() */
+} /* end SpiSlaveSM_Error() */
+
 
 
 /*--------------------------------------------------------------------------------------------------------------------*/

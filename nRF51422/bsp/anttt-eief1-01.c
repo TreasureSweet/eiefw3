@@ -77,9 +77,12 @@ Promises:
 */
 void GpioSetup(void)
 {
-  /* Set all of the pin function registers in port 0 */
-  NRF_GPIO->PIN_CNF[P0_29_INDEX] = P0_29_LED_RED_CNF;
-   
+	/* Set all of the pin function registers in port 0 */
+	NRF_GPIO->PIN_CNF[P0_29_INDEX_LED_RED] = P0_29_LED_RED_CNF;
+	NRF_GPIO->PIN_CNF[P0_28_INDEX_LED_YLW] = P0_28_LED_YLW_CNF;
+	NRF_GPIO->PIN_CNF[P0_27_INDEX_LED_GRN] = P0_27_LED_GRN_CNF;
+	NRF_GPIO->PIN_CNF[P0_26_INDEX_LED_BLU] = P0_26_LED_BLU_CNF;
+	
 } /* end GpioSetup() */
 
 

@@ -55,6 +55,7 @@ void main(void)
   /* Clock, GPIO and SoftDevice setup */  
   ClockSetup();
   GpioSetup();
+  SpiMasterInitialize();
 
   __enable_interrupt();
   
@@ -74,7 +75,7 @@ void main(void)
 
   ANTIntegrationInitialize();
   BLEIntegrationInitialize();
-  bleperipheralInitialize();
+//  bleperipheralInitialize();
   
   /* Application initialization */
   AntttInitialize();
@@ -87,7 +88,8 @@ void main(void)
   {
     SocIntegrationHandler();
     AntttRunActiveState();
-   
+	SpiMasterRunActiveState();
+	
     /* System sleep*/
     SystemSleep();
     

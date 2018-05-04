@@ -91,6 +91,7 @@ Includes
 #include "user_app1.h"
 #include "user_app2.h"
 #include "user_app3.h"
+#include "Spi_Slave.h"
 
 
 
@@ -915,7 +916,7 @@ SPI slave mode to communicate with an ANT device.
 
 
 /* USART Interrupt Enable Register - Page 741 */
-#define ANT_US_IER_INIT (u32)0x00080000
+#define ANT_US_IER_INIT (u32)0x00080001
 /*
     31 [0] Reserved
     30 [0] "
@@ -955,7 +956,7 @@ SPI slave mode to communicate with an ANT device.
     03 [0] ENDRX End of Receiver Transfer (PDC) interrupt not enabled
     02 [0] RXBRK Break Received interrupt not enabled
     01 [0] TXRDY Transmitter Ready interrupt not enabled YET
-    00 [0] RXRDY Receiver Ready interrupt enabled 
+    00 [1] RXRDY Receiver Ready interrupt enabled 
 */
 
 /* USART Interrupt Disable Register - Page 743 */

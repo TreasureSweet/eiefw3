@@ -2041,6 +2041,9 @@
         <name>$PROJ_DIR$\..\application\main.h</name>
       </file>
       <file>
+        <name>$PROJ_DIR$\..\application\spi_master.h</name>
+      </file>
+      <file>
         <name>$PROJ_DIR$\..\application\typedefs.h</name>
       </file>
     </group>
@@ -2054,6 +2057,9 @@
       </file>
       <file>
         <name>$PROJ_DIR$\..\application\main.c</name>
+      </file>
+      <file>
+        <name>$PROJ_DIR$\..\application\Spi_Master.c</name>
       </file>
     </group>
   </group>

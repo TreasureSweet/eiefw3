@@ -1,28 +1,19 @@
 /*!*********************************************************************************************************************
-@file user_app2.h                                                                
-@brief Header file for user_app2
-
-----------------------------------------------------------------------------------------------------------------------
-To start a new task using this user_app2 as a template:
-1. Follow the instructions at the top of user_app2.c
-2. Use ctrl-h to find and replace all instances of "user_app2" with "yournewtaskname"
-3. Use ctrl-h to find and replace all instances of "UserApp2" with "YourNewTaskName"
-4. Use ctrl-h to find and replace all instances of "USER_APP2" with "YOUR_NEW_TASK_NAME"
-5. Add #include yournewtaskname.h" to configuration.h
-6. Add/update any special configurations required in configuration.h (e.g. peripheral assignment and setup values)
-7. Delete this text (between the dashed lines)
-----------------------------------------------------------------------------------------------------------------------
-
+@file Spi_Slave.h                                                                
+@brief Header file for Spi_Slave
 **********************************************************************************************************************/
 
-#ifndef __USER_APP2_H
-#define __USER_APP2_H
+#ifndef __SPI_SLAVE_H
+#define __SPI_SLAVE_H
 
 /**********************************************************************************************************************
 Type Definitions
 **********************************************************************************************************************/
+#define RX_READY ( (AT91C_BASE_US2->US_IMR & AT91C_US_RXRDY) && \
+                   (AT91C_BASE_US2->US_CSR & AT91C_US_RXRDY)       )
 
-
+#define TX_READY ( (AT91C_BASE_US2->US_IMR & AT91C_US_TXRDY) && \
+                   (AT91C_BASE_US2->US_CSR & AT91C_US_TXRDY)       )
 /**********************************************************************************************************************
 Function Declarations
 **********************************************************************************************************************/
@@ -30,13 +21,13 @@ Function Declarations
 /*------------------------------------------------------------------------------------------------------------------*/
 /*! @publicsection */                                                                                            
 /*--------------------------------------------------------------------------------------------------------------------*/
-
+u8 SpiGetRHR(void);
 
 /*------------------------------------------------------------------------------------------------------------------*/
 /*! @protectedsection */                                                                                            
 /*--------------------------------------------------------------------------------------------------------------------*/
-void UserApp2Initialize(void);
-void UserApp2RunActiveState(void);
+void SpiSlaveInitialize(void);
+void SpiSlaveRunActiveState(void);
 
 
 /*------------------------------------------------------------------------------------------------------------------*/
@@ -47,10 +38,10 @@ void UserApp2RunActiveState(void);
 /***********************************************************************************************************************
 State Machine Declarations
 ***********************************************************************************************************************/
-static void UserApp2SM_Idle(void);    
-static void UserApp2SM_Error(void);         
-static void UserApp2SM_RX_CB(void);
-static void UserApp2SM_TX_CB(void);
+static void SpiSlaveSM_Idle(void);    
+static void SpiSlaveSM_Error(void);         
+static void SpiSlaveSM_RX_CB(void);
+static void SpiSlaveSM_Sync(void);
 
 
 /**********************************************************************************************************************
@@ -58,7 +49,7 @@ Constants / Definitions
 **********************************************************************************************************************/
 
 
-#endif /* __USER_APP2_H */
+#endif /* __SPI_SLAVE_H */
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* End of File                                                                                                        */
 /*--------------------------------------------------------------------------------------------------------------------*/
