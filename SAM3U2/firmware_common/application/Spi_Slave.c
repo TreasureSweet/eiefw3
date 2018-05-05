@@ -108,7 +108,7 @@ void SpiSlaveInitialize(void)
 	if( 1 )
 	{
 		LedOn(YELLOW);
-		AT91C_BASE_US2->US_THR = 0xFF;
+		LedOff(BLUE);
 		SpiSlave_pfStateMachine = SpiSlaveSM_Sync;
 	}
 	else
@@ -168,14 +168,7 @@ static void UserApp2SM_RX_CB(void)
 {
 	SpiGetRHR();
 	
-	if(AT91C_BASE_PIOB->PIO_ODSR & PB_18_LED_BLU)
-	{
-		AT91C_BASE_PIOB->PIO_CODR = PB_18_LED_BLU;
-	}
-	else
-	{
-		AT91C_BASE_PIOB->PIO_SODR = PB_18_LED_BLU;
-	}
+	LedToggle(BLUE);
 	
 	SpiSlave_pfStateMachine = SpiSlaveSM_Idle;
 } /* end UserApp2SM_RX_CB() */
@@ -183,6 +176,13 @@ static void UserApp2SM_RX_CB(void)
 /* Wait for Spi slave sync */
 static void SpiSlaveSM_Sync(void)
 {
+	static u8 u8Wait = 255;
+	
+	if(--u8Wait == 0)
+	{
+		AT91C_BASE_PIOB->PIO_SODR = PB_24_ANT_SRDY;
+	}
+	
 	if(RX_READY)
 	{
 		SpiGetRHR();

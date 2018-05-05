@@ -9,6 +9,12 @@
 /**********************************************************************************************************************
 Type Definitions
 **********************************************************************************************************************/
+#define ANT_MR_AND_SR_STAT             (u32)( NRF_GPIO->IN & ANT_MRH_SRH )
+#define ANT_MRH_SRH                  (u32)0x00000300
+#define ANT_MRH_SRL                  (u32)0x00000100
+#define ANT_MRL_SRH                  (u32)0x00000200
+#define ANT_MRL_SRL                  (u32)0x00000000
+
 #define P0_13_ANT_USPI2_MOSI_CNF     ( (GPIO_PIN_CNF_DIR_Output       << GPIO_PIN_CNF_DIR_Pos)   | \
 									   (GPIO_PIN_CNF_INPUT_Disconnect << GPIO_PIN_CNF_INPUT_Pos) | \
 									   (GPIO_PIN_CNF_PULL_Disabled    << GPIO_PIN_CNF_PULL_Pos)  | \

@@ -55,6 +55,7 @@ void main(void)
   /* Clock, GPIO and SoftDevice setup */  
   ClockSetup();
   GpioSetup();
+  LedsInitialize();
   SpiMasterInitialize();
 
   __enable_interrupt();

@@ -125,7 +125,7 @@ void SpiMasterInitialize(void)
 	/* If good initialization, set state to Idle */
 	if( 1 )
 	{
-		NRF_GPIO->OUTSET = P0_28_LED_YLW;
+		LedOn(YELLOW);
 		SpiMaster_pfStateMachine = SpiMasterSM_Sync;
 	}
 	else
@@ -173,11 +173,11 @@ static void SpiMasterSM_Idle(void)
 {
 	static u16 u16Wait = 5000;
 	
-	if(NRF_GPIO->IN & P0_08_ANT_MRDY)
+	if( ANT_MR_AND_SR_STAT == ANT_MRH_SRH )
 	{
 		SpiGetRXD();
-		NRF_GPIO->OUTCLR = P0_26_LED_BLU;
-		NRF_GPIO->OUTSET = P0_28_LED_YLW;
+		LedOff(BLUE);
+		LedOn(YELLOW);
 		SpiMaster_pfStateMachine = SpiMasterSM_Sync;
 	}
 	else
@@ -202,14 +202,7 @@ static void SpiMasterSM_CB(void)
 {
 	SpiGetRXD();
 	
-	if(NRF_GPIO->OUT & P0_26_LED_BLU)
-	{
-		NRF_GPIO->OUTCLR = P0_26_LED_BLU;
-	}
-	else
-	{
-		NRF_GPIO->OUTSET = P0_26_LED_BLU;
-	}
+	LedToggle(BLUE);
 	
 	SpiMaster_pfStateMachine = SpiMasterSM_Idle;
 	
@@ -218,19 +211,43 @@ static void SpiMasterSM_CB(void)
 /* Wait for Sync */
 static void SpiMasterSM_Sync(void)
 {
-	static u16 u16Count = 1000;
+	static bool bRequest = false;
 	
-	if(--u16Count == 0)
+	if(bRequest)
 	{
-		u16Count = 0;
-		NRF_SPI0->TXD    = 0xFF;
+		switch(ANT_MR_AND_SR_STAT)
+		{
+			case ANT_MRH_SRH:
+			{
+				NRF_SPI0->TXD    = 0xFF;
+				LedOff(YELLOW);
+				LedOn(GREEN);
+				break;
+			}
+			
+			case ANT_MRL_SRH:
+			{
+				SpiGetRXD();
+				LedOff(GREEN);
+				SpiMaster_pfStateMachine = SpiMasterSM_Idle;
+				bRequest = false;
+				break;
+			}
+			
+			default:
+			{
+				LedOn(YELLOW);
+				LedOff(GREEN);
+				break;
+			}
+		}
 	}
-	
-	if( !(NRF_GPIO->IN & P0_08_ANT_MRDY) )
+	else
 	{
-		SpiGetRXD();
-		NRF_GPIO->OUTCLR = P0_28_LED_YLW;
-		SpiMaster_pfStateMachine = SpiMasterSM_Idle;
+		if( ANT_MR_AND_SR_STAT == ANT_MRH_SRL )
+		{
+			bRequest = true;
+		}
 	}
 	
 } /* end SpiMasterSM_Sync() */
