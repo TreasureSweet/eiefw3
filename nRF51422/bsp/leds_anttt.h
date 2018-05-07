@@ -21,6 +21,8 @@ Type Definitions
 ******************************************************************************/
 typedef enum {BLUE = 0, GREEN, YELLOW, RED} eLedTypes;
 
+#define LedRemindTime         (u16)20000
+
 #define P0_29_LED_RED_CNF     ( (GPIO_PIN_CNF_DIR_Output       << GPIO_PIN_CNF_DIR_Pos)   | \
                                 (GPIO_PIN_CNF_INPUT_Disconnect << GPIO_PIN_CNF_INPUT_Pos) | \
                                 (GPIO_PIN_CNF_PULL_Disabled    << GPIO_PIN_CNF_PULL_Pos)  | \
@@ -57,11 +59,12 @@ typedef enum {BLUE = 0, GREEN, YELLOW, RED} eLedTypes;
 void LedOn(eLedTypes);
 void LedOff(eLedTypes);
 void LedToggle(eLedTypes);
+void LedRemind(eLedTypes);
 bool LedCheckOn(eLedTypes);
 
 /* Protected Functions */
 void LedsInitialize(void);
-
+void LedsHandle(void);
 
 /* Private Functions */
 

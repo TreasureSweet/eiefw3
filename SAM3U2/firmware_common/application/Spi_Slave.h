@@ -14,6 +14,13 @@ Type Definitions
 
 #define TX_READY ( (AT91C_BASE_US2->US_IMR & AT91C_US_TXRDY) && \
                    (AT91C_BASE_US2->US_CSR & AT91C_US_TXRDY)       )
+
+#define SET_MRDY() ( AT91C_BASE_PIOB->PIO_SODR = PB_23_ANT_MRDY );
+#define CLR_MRDY() ( AT91C_BASE_PIOB->PIO_CODR = PB_23_ANT_MRDY );
+#define SET_SRDY() ( AT91C_BASE_PIOB->PIO_SODR = PB_24_ANT_SRDY );
+#define CLR_SRDY() ( AT91C_BASE_PIOB->PIO_CODR = PB_24_ANT_SRDY );
+
+
 /**********************************************************************************************************************
 Function Declarations
 **********************************************************************************************************************/

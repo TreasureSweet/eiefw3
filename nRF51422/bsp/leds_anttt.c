@@ -15,6 +15,10 @@ All Global variable names shall start with "G_xxLed"
 /* New variables (all shall start with G_xxLed*/
 u32 au32LedsAdr[] = {P0_26_LED_BLU, P0_27_LED_GRN, P0_28_LED_YLW, P0_29_LED_RED};
 
+bool bLedRemind = false;
+eLedTypes eLedRemind;
+u16 u16LedRemindTime;
+
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* External global variables defined in other files (must indicate which file they are defined in) */
 extern volatile u32 G_u32SystemTime1ms;                /* From board-specific source file */
@@ -88,6 +92,16 @@ void LedToggle(eLedTypes eLedType)
 } /* end void LedToggle */
 
 
+/* Blink Led once */
+void LedRemind(eLedTypes eLedType)
+{
+	u16LedRemindTime = LedRemindTime;
+	eLedRemind = eLedType;
+	bLedRemind = true;
+	
+} /* end LedRemind */
+
+
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* Protected functions */
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -106,6 +120,29 @@ void LedsInitialize(void)
 	NRF_GPIO->OUTCLR = P0_26_LED_BLU;
 	
 } /* end LedsInitialize(void) */
+
+
+/* LedsHandle(void)
+   Handle led event needs time to finish
+*/
+void LedsHandle(void)
+{
+	/* Handle event in LedRemind() */
+	if(bLedRemind)
+	{
+		if(u16LedRemindTime-- == LedRemindTime)
+		{
+			LedOn(eLedRemind);
+		}
+		
+		if(u16LedRemindTime == 0)
+		{
+			LedOff(eLedRemind);
+			bLedRemind = false;
+		}
+	} /* end event in LedRemind() */
+	
+} /* end LedsHandle(void) */
 
 
 /*--------------------------------------------------------------------------------------------------------------------*/

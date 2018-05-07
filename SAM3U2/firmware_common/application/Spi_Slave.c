@@ -96,19 +96,22 @@ void SpiSlaveInitialize(void)
 {
 	/* USART2 INIT */
 	AT91C_BASE_US2->US_CR = ANT_US_CR_INIT;
-	AT91C_BASE_US2->US_MR = ANT_US_MR_INIT;
+	AT91C_BASE_US2->US_MR = ( ANT_US_MR_INIT | 0x100 );
 	AT91C_BASE_US2->US_IER = ANT_US_IER_INIT;
 	AT91C_BASE_US2->US_IDR = ANT_US_IDR_INIT;
 	AT91C_BASE_US2->US_BRGR = ANT_US_BRGR_INIT;
+	AT91C_BASE_PMC->PMC_PCER |= (1 << AT91C_ID_US2);
 	
 	/* MRDY & SRDY INIT */
-	AT91C_BASE_PIOB->PIO_SODR = (PB_23_ANT_MRDY | PB_24_ANT_SRDY);
+	AT91C_BASE_PIOB->PIO_SODR = ( PB_24_ANT_SRDY | PB_23_ANT_MRDY);
+	
+	LedOff(GREEN);
+	LedOff(BLUE);
 	
 	/* If good initialization, set state to Idle */
 	if( 1 )
 	{
 		LedOn(YELLOW);
-		LedOff(BLUE);
 		SpiSlave_pfStateMachine = SpiSlaveSM_Sync;
 	}
 	else
@@ -154,40 +157,76 @@ State Machine Function Definitions
 /* What does this state do? */
 static void SpiSlaveSM_Idle(void)
 {
-	AT91C_BASE_US2->US_THR = 0x16;
+	static u8 u8Test = 0x00;
+	
+	
+	AT91C_BASE_US2->US_THR = u8Test++;
+//	AT91C_BASE_US2->US_THR = 0x32;
 	
 	if(RX_READY)
 	{
-		SpiSlave_pfStateMachine = UserApp2SM_RX_CB;
+		SpiSlave_pfStateMachine = SpiSlaveSM_RX_CB;
 	}
 } /* end SpiSlaveSM_Idle() */
 
 
-/* UserApp2SM_RX_CB */
-static void UserApp2SM_RX_CB(void)
+/* SpiSlaveSM_RX_CB */
+static void SpiSlaveSM_RX_CB(void)
 {
-	SpiGetRHR();
+	static u8 u8Test;
+	u8Test = SpiGetRHR();
 	
-	LedToggle(BLUE);
+	switch(u8Test)
+	{
+		case 0x00:
+		case 0x01:
+		case 0x02:
+		case 0x10:
+		case 0x11:
+		case 0x12:
+		case 0x20:
+		case 0x21:
+		case 0x22:
+			DebugPrintNumber( (u32)u8Test );
+			DebugLineFeed();
+			break;
+			
+		case 0xF0:
+			DebugPrintf("Format error!\n\r");
+			break;
+			
+		default:
+			break;
+	}
+	
+	LedToggle(GREEN);
 	
 	SpiSlave_pfStateMachine = SpiSlaveSM_Idle;
-} /* end UserApp2SM_RX_CB() */
+} /* end SpiSlaveSM_RX_CB() */
 
 /* Wait for Spi slave sync */
 static void SpiSlaveSM_Sync(void)
 {
 	static u8 u8Wait = 255;
 	
-	if(--u8Wait == 0)
+	if(--u8Wait == 155)
 	{
-		AT91C_BASE_PIOB->PIO_SODR = PB_24_ANT_SRDY;
+		CLR_SRDY();
+		LedOn(BLUE);
+		LedOff(YELLOW);
+	}
+	
+	if(u8Wait == 0)
+	{
+		SET_SRDY();
 	}
 	
 	if(RX_READY)
 	{
 		SpiGetRHR();
-		LedOff(YELLOW);
-		AT91C_BASE_PIOB->PIO_CODR = PB_23_ANT_MRDY;
+		LedOff(BLUE);
+		CLR_MRDY();
+		u8Wait = 255;
 		SpiSlave_pfStateMachine = SpiSlaveSM_Idle;
 	}
 	

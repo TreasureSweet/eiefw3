@@ -9,7 +9,7 @@ TriggerName=main
 LimitSize=0
 ByteLimit=50
 [DebugChecksum]
-Checksum=-1206456013
+Checksum=698498182
 [Exceptions]
 StopOnUncaught=_ 0
 StopOnThrow=_ 0
@@ -25,11 +25,13 @@ TraceBufferSize=0x00010000
 TraceStallIfFIFOFull=0x00000000
 TracePortSize=0x00000000
 [watch_formats]
-Fmt0={W}3:u8Wait	3	0
-Fmt1={W}3:u8WaitTime	3	0
-Fmt2={W}3:~1	4	0
-Fmt3={W}4:u32Byte	4	0
-Fmt4={W}4:u8Test	4	0
+Fmt0={W}2:u8Text	4	0
+Fmt1={W}3:u8Test	4	0
+Fmt2={W}3:u8Wait	3	0
+Fmt3={W}3:u8WaitTime	3	0
+Fmt4={W}3:~1	4	0
+Fmt5={W}4:u32Byte	4	0
+Fmt6={W}4:u8Test	4	0
 [Log file]
 LoggingEnabled=_ 0
 LogFile=_ ""
@@ -48,9 +50,7 @@ Exclusions=
 [Disassemble mode]
 mode=0
 [Breakpoints2]
-Bp0=_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\..\firmware_common\drivers\sam3u_ssp.c}.272.3" 0 0 1 "" 0 "" 0
-Bp1=_ 0 "EMUL_CODE" "{$PROJ_DIR$\..\..\firmware_common\drivers\sam3u_ssp.c}.240.3" 0 0 1 "" 0 "" 0
-Count=2
+Count=0
 [Aliases]
 Count=0
 SuppressDialog=0

@@ -9,7 +9,7 @@
 /**********************************************************************************************************************
 Type Definitions
 **********************************************************************************************************************/
-#define ANT_MR_AND_SR_STAT             (u32)( NRF_GPIO->IN & ANT_MRH_SRH )
+#define ANT_MR_AND_SR_STAT           (u32)( NRF_GPIO->IN & ANT_MRH_SRH )
 #define ANT_MRH_SRH                  (u32)0x00000300
 #define ANT_MRH_SRL                  (u32)0x00000100
 #define ANT_MRL_SRH                  (u32)0x00000200
@@ -55,7 +55,7 @@ Type Definitions
                                        (SPI_CONFIG_CPHA_Leading       <<   SPI_CONFIG_CPHA_Pos)  | \
 									   (SPI_CONFIG_ORDER_MsbFirst     <<   SPI_CONFIG_ORDER_Pos) )
 
-#define SPI0_FREQUENCY_CNF           (  SPI_FREQUENCY_FREQUENCY_K250 << SPI_FREQUENCY_FREQUENCY_Pos  )
+#define SPI0_FREQUENCY_CNF           (  SPI_FREQUENCY_FREQUENCY_K125 << SPI_FREQUENCY_FREQUENCY_Pos  )
 
 //#define RX_READY ( (AT91C_BASE_US2->US_IMR & AT91C_US_RXRDY) && \
 //                   (AT91C_BASE_US2->US_CSR & AT91C_US_RXRDY)       )
@@ -72,24 +72,26 @@ Function Declarations
 /*--------------------------------------------------------------------------------------------------------------------*/
 u8 SpiGetRXD(void);
 
+
 /*------------------------------------------------------------------------------------------------------------------*/
 /*! @protectedsection */                                                                                            
 /*--------------------------------------------------------------------------------------------------------------------*/
 void SpiMasterInitialize(void);
 void SpiMasterRunActiveState(void);
+void SpiMasterCB_Handle(void);
 
 
 /*------------------------------------------------------------------------------------------------------------------*/
 /*! @privatesection */                                                                                            
 /*--------------------------------------------------------------------------------------------------------------------*/
+static void SpiMaster_CB(void);
 
 
 /***********************************************************************************************************************
 State Machine Declarations
 ***********************************************************************************************************************/
-static void SpiMasterSM_Idle(void);    
-static void SpiMasterSM_Error(void);         
-static void SpiMasterSM_CB(void);
+static void SpiMasterSM_Idle(void);
+static void SpiMasterSM_Error(void);
 static void SpiMasterSM_Sync(void);
 
 

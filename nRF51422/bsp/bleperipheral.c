@@ -66,6 +66,7 @@ bool bleperipheralInitialize(void)
   bResult |= bleperipheral_advertising_init();
   bResult |= bleperipheral_services_init();
   bleperipheral_sec_params_init();
+  bleperipheralIsConnectedandEnabled();
   bResult |= bleperipheral_advertising_start();
   
   return bResult;

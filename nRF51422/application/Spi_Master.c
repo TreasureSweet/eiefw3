@@ -34,6 +34,7 @@ volatile u32 G_u32SpiMasterFlags;                          /*!< @brief Global st
 /* Existing variables (defined in other files -- should all contain the "extern" keyword) */
 extern volatile u32 G_u32SystemTime1ms;                   /*!< @brief From main.c */
 extern volatile u32 G_u32SystemTime1s;                    /*!< @brief From main.c */
+extern u8 u8TXD_Message_BLE;
 
 /***********************************************************************************************************************
 Global variable definitions with scope limited to this local application.
@@ -112,19 +113,21 @@ void SpiMasterInitialize(void)
 	NRF_SPI0->PSELMOSI       =      P0_13_INDEX_ANT_USPI2_MOSI;
 	NRF_SPI0->FREQUENCY      =      SPI0_FREQUENCY_CNF;
 	NRF_SPI0->CONFIG         =      SPI0_CONFIG_CNF;
-//	NRF_SPI0->EVENTS_READY   =      0;
+	NRF_SPI0->INTENSET       =      SPI_INTENSET_READY_Enabled << SPI_INTENSET_READY_Pos;
 	
-//	NRF_GPIO->OUTCLR         =      P0_10_ANT_CS;
+	/* INIT AS CONFIG DISCRIBED */
+	NRF_SPI0->EVENTS_READY   =      0;
+	NRF_GPIO->OUTCLR         =      P0_13_ANT_USPI2_MOSI;
+	
+	/* ENABLE SPI0 AND DISABLE TWI0 (They use the same pins) */
+	NRF_GPIO->OUTCLR         =      P0_10_ANT_CS;
 	NRF_TWI0->ENABLE         =      TWI_ENABLE_ENABLE_Disabled << TWI_ENABLE_ENABLE_Pos;
 	NRF_SPI0->ENABLE         =      SPI_ENABLE_ENABLE_Enabled << SPI_ENABLE_ENABLE_Pos;
-	
-	/* Clear MOSI as config */
-//	NRF_GPIO->OUTCLR         =      P0_13_ANT_USPI2_MOSI;
-	
 	
 	/* If good initialization, set state to Idle */
 	if( 1 )
 	{
+		// Yellow led on means wait for slave request
 		LedOn(YELLOW);
 		SpiMaster_pfStateMachine = SpiMasterSM_Sync;
 	}
@@ -171,40 +174,66 @@ State Machine Function Definitions
 /* What does this state do? */
 static void SpiMasterSM_Idle(void)
 {
-	static u16 u16Wait = 5000;
+	static u16 u16LedIndicateTime = 30000;
 	
-	if( ANT_MR_AND_SR_STAT == ANT_MRH_SRH )
+	/* Green Led indicate state machine running */
+	u16LedIndicateTime--;
+			
+	if(u16LedIndicateTime == 3000)
 	{
-		SpiGetRXD();
-		LedOff(BLUE);
-		LedOn(YELLOW);
-		SpiMaster_pfStateMachine = SpiMasterSM_Sync;
+		LedOn(GREEN);
+		
 	}
-	else
+	
+	if(u16LedIndicateTime == 0)
 	{
-		if(u16Wait-- == 0)
+		u16LedIndicateTime = 30000;
+		LedOff(GREEN);
+		
+	} /* END */
+	
+	/*-------------      Slave event handle      ---------------------*/
+	switch(ANT_MR_AND_SR_STAT)
+	{
+		case ANT_MRL_SRH: // Normally run
 		{
-			u16Wait = 5000;
-			NRF_SPI0->TXD    = 0x23;
+			break;
 		}
+		
+		case ANT_MRL_SRL: // Slave want to send message
+		{
+			NRF_SPI0->TXD    = 0xFF;
+			break;
+		}
+		
+		default: // Error, return to sync
+		{
+			SpiGetRXD();
+			LedOff(GREEN);
+			LedOff(BLUE);
+			LedOn(YELLOW);
+			u16LedIndicateTime = 30000;
+			SpiMaster_pfStateMachine = SpiMasterSM_Sync;
+			break;
+		}
+		
 	}
-	
-	if(NRF_SPI0->EVENTS_READY)
-	{
-		SpiMaster_pfStateMachine = SpiMasterSM_CB;
-	}
+	/*-----------------        END           ------------------------*/
 	
 } /* end SpiMasterSM_Idle() */
 
 
 /* Spi TXD byte sent and RXD byte received callback */
-static void SpiMasterSM_CB(void)
+static void SpiMaster_CB(void)
 {
-	SpiGetRXD();
+	/* This api Auto run once when get a new message */
+	u8 u8Test;
 	
-	LedToggle(BLUE);
+	u8Test = SpiGetRXD(); // Get the messge
 	
-	SpiMaster_pfStateMachine = SpiMasterSM_Idle;
+	BPEngenuicsSendData(&u8Test, sizeof(u8Test)); //Send the messge to BLE
+	
+	LedRemind(BLUE);
 	
 } /* end SpiMasterSM_CB() */
 
@@ -213,44 +242,65 @@ static void SpiMasterSM_Sync(void)
 {
 	static bool bRequest = false;
 	
-	if(bRequest)
+	if(bRequest) // Do when slave has initialized (Function: sync)
 	{
 		switch(ANT_MR_AND_SR_STAT)
 		{
+			// MRDY is high and SRDY is high means Slave is ready for get message (Ask for send a test message)
 			case ANT_MRH_SRH:
 			{
 				NRF_SPI0->TXD    = 0xFF;
-				LedOff(YELLOW);
-				LedOn(GREEN);
 				break;
 			}
 			
+			// MRDY is low and SRDY is high means Slave has get the test message
+			// Turn off BLUE led means sync finish (State machine change to IDLE)
 			case ANT_MRL_SRH:
 			{
 				SpiGetRXD();
-				LedOff(GREEN);
+				LedOff(BLUE);
 				SpiMaster_pfStateMachine = SpiMasterSM_Idle;
 				bRequest = false;
 				break;
 			}
 			
+			// Error happened.
+			// Reasons: 1.Slave can't receive message 2.Master can't send message 3.Slave need time to receive message 4.....
 			default:
 			{
-				LedOn(YELLOW);
+				LedOff(YELLOW);
 				LedOff(GREEN);
+				LedOn(BLUE);
 				break;
 			}
 		}
 	}
-	else
+	else // Do when slave not finish initialize (Function: Check)
 	{
+		// MRDY is high and SRDY is low means Slave initialize finish (Come into if())
+		// Turn on BLUE led means wait slave ask master send test message
 		if( ANT_MR_AND_SR_STAT == ANT_MRH_SRL )
 		{
 			bRequest = true;
+			LedOff(YELLOW);
+			LedOff(GREEN);
+			LedOn(BLUE);
 		}
 	}
 	
 } /* end SpiMasterSM_Sync() */
+
+
+/* Check if run CB api */
+void SpiMasterCB_Handle(void)
+{
+	// Must run this in main.c loop so that the callback function can normally run
+	if(NRF_SPI0->EVENTS_READY)
+	{
+		SpiMaster_CB();
+	}
+	
+} /* end SpiMasterCB_Handle */
 
 
 /*-------------------------------------------------------------------------------------------------------------------*/

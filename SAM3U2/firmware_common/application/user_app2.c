@@ -108,6 +108,14 @@ void UserApp2Initialize(void)
 	US2_SspConfig.u16RxBufferSize = 2;
 	
 	pSsp = SspRequest(&US2_SspConfig);
+	
+	/* MRDY & SRDY INIT */
+	AT91C_BASE_PIOB->PIO_SODR = ( PB_24_ANT_SRDY | PB_23_ANT_MRDY);
+	
+	LedOff(GREEN);
+	LedOff(BLUE);
+	LedOn(YELLOW);
+	
   /* If good initialization, set state to Idle */
   if( pSsp )
   {
