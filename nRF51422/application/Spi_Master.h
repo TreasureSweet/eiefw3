@@ -51,7 +51,7 @@ Type Definitions
 									   (GPIO_PIN_CNF_DRIVE_S0S1       << GPIO_PIN_CNF_DRIVE_Pos) | \
 									   (GPIO_PIN_CNF_SENSE_Disabled   << GPIO_PIN_CNF_SENSE_Pos) )
 
-#define SPI0_CONFIG_CNF              ( (SPI_CONFIG_CPOL_ActiveLow     <<   SPI_CONFIG_CPOL_Pos)  | \
+#define SPI0_CONFIG_CNF              ( (SPI_CONFIG_CPOL_ActiveLow    <<   SPI_CONFIG_CPOL_Pos)  | \
                                        (SPI_CONFIG_CPHA_Leading       <<   SPI_CONFIG_CPHA_Pos)  | \
 									   (SPI_CONFIG_ORDER_MsbFirst     <<   SPI_CONFIG_ORDER_Pos) )
 

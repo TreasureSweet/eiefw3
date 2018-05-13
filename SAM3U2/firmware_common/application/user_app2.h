@@ -49,8 +49,6 @@ State Machine Declarations
 ***********************************************************************************************************************/
 static void UserApp2SM_Idle(void);    
 static void UserApp2SM_Error(void);         
-static void UserApp2SM_RX_CB(void);
-static void UserApp2SM_TX_CB(void);
 
 
 /**********************************************************************************************************************

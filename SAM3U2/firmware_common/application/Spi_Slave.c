@@ -30,12 +30,42 @@ All Global variable names shall start with "G_<type>SpiSlave"
 /* New variables */
 volatile u32 G_u32SpiSlaveFlags;                          /*!< @brief Global state flags */
 
+static u8 au8GameInterface[][51] =
+{
+	"012345678901234567890123456789012345678901234567\n\r",
+	"1               |               |               \n\r",
+	"2               |               |               \n\r",
+	"3               |               |               \n\r",
+	"4       1       |       2       |       3       \n\r",
+	"5               |               |               \n\r",
+	"6               |               |               \n\r",
+	"7---------------|---------------|---------------\n\r",
+	"8               |               |               \n\r",
+	"9               |               |               \n\r",
+	"0               |               |               \n\r",
+	"1       4       |       5       |       6       \n\r",
+	"2               |               |               \n\r",
+	"3               |               |               \n\r",
+	"4---------------|---------------|---------------\n\r",
+	"5               |               |               \n\r",
+	"6               |               |               \n\r",
+	"7               |               |               \n\r",
+	"8       7       |       8       |       9       \n\r",
+	"9               |               |               \n\r",
+	"0               |               |               \n\r"
+};
+
+static bool bSlaveRound = TRUE;
+static bool bWhoFirst = TRUE;
+
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* Existing variables (defined in other files -- should all contain the "extern" keyword) */
 extern volatile u32 G_u32SystemTime1ms;                   /*!< @brief From main.c */
 extern volatile u32 G_u32SystemTime1s;                    /*!< @brief From main.c */
 extern volatile u32 G_u32SystemFlags;                     /*!< @brief From main.c */
 extern volatile u32 G_u32ApplicationFlags;                /*!< @brief From main.c */
+extern u8 G_au8DebugScanfBuffer[DEBUG_SCANF_BUFFER_SIZE]; /* From debug.c */
+extern u8 G_u8DebugScanfCharCount;                    /* From debug.c */
 
 
 /***********************************************************************************************************************
@@ -71,6 +101,20 @@ u8 SpiGetRHR(void)
 	
 	return 0xFF;
 } /* end SpiGetRXD(void) */
+
+
+/*
+- Name: DebugPrintGame(void)
+- Function:
+   Print Game InterFace
+*/
+static void DebugPrintGame(void)
+{
+	for(u8 i = sizeof(au8GameInterface) / 51, *pu8Point = au8GameInterface[0]; i; i--, pu8Point += 51)
+	{
+		DebugPrintf(pu8Point);
+	}
+} /* end DebugPrintGame() */
 
 
 /*--------------------------------------------------------------------------------------------------------------------*/
@@ -122,7 +166,100 @@ void SpiSlaveInitialize(void)
 
 } /* end SpiSlaveInitialize() */
 
-  
+
+/* void SpiMessageHandle(void)
+Do if get rx or need tx
+*/
+void SpiMessageHandle(void)
+{
+	if( (AT91C_BASE_US2->US_CSR & AT91C_US_TXEMPTY) == 0 )
+	{
+		CLR_SRDY();
+	}
+	
+	if(RX_READY)
+	{	
+		SpiSlave_RX_CB();
+	}
+	
+} /* end SpiMessageHandle() */
+
+/* void SpiGameFinshCheck(void)
+Check if one player has won
+*/
+void SpiGameFinshCheck(void)
+{
+	static u8 u8RoundTimes = 0;
+	static bool bFinish = FALSE;
+	u8 au8Result[8];
+	
+	u8RoundTimes++;
+	
+	au8Result[0] = au8GameInterface[4][8]  & au8GameInterface[4][24]  & au8GameInterface[4][40];
+	au8Result[1] = au8GameInterface[11][8] & au8GameInterface[11][24] & au8GameInterface[11][40];
+	au8Result[2] = au8GameInterface[18][8] & au8GameInterface[18][24] & au8GameInterface[18][40];
+	au8Result[3] = au8GameInterface[4][8]  & au8GameInterface[11][8]  & au8GameInterface[18][8];
+	au8Result[4] = au8GameInterface[4][24] & au8GameInterface[11][24] & au8GameInterface[18][24];
+	au8Result[5] = au8GameInterface[4][40] & au8GameInterface[11][40] & au8GameInterface[18][40];
+	au8Result[6] = au8GameInterface[4][8]  & au8GameInterface[11][24] & au8GameInterface[18][40];
+	au8Result[7] = au8GameInterface[4][40] & au8GameInterface[11][24] & au8GameInterface[18][8];
+	
+	for(u8 i = sizeof(au8Result); i; i--)
+	{
+		if( (au8Result[i] == 'X') ) //Master
+		{
+			DebugPrintf("\n\rBLE win!\n\r");
+			bFinish = TRUE;
+		}
+		
+		if( (au8Result[i] == 'O') ) //Slave
+		{
+			DebugPrintf("\n\rYou win!\n\r");
+			bFinish = TRUE;
+		}
+	}
+	
+	if(bFinish)
+	{
+		bFinish = FALSE;
+		LedOff(WHITE);
+		LedOff(PURPLE);
+		LedOff(BLUE);
+		LedOff(YELLOW);
+		LedOff(GREEN);
+		LedOff(CYAN);
+		LedOff(ORANGE);
+		LedOff(RED);
+		SpiSlave_pfStateMachine = GameFinishSM;
+	}
+	else if(u8RoundTimes == 9)
+	{
+		LedOff(WHITE);
+		LedOff(PURPLE);
+		LedOff(BLUE);
+		LedOff(YELLOW);
+		LedOff(GREEN);
+		LedOff(CYAN);
+		LedOff(ORANGE);
+		LedOff(RED);
+		DebugPrintf("\n\rDraw!\n\r");
+		SpiSlave_pfStateMachine = GameFinishSM;
+	}
+	else
+	{
+		if(!bSlaveRound)
+		{
+			DebugPrintf("\n\rWait Ble input\n\r");
+		}
+		else
+		{
+			DebugPrintf("\n\rBLE Finish\n\rYour input:");
+		}
+	}
+	
+} /* end SpiGameFinshCheck() */
+
+
 /*!----------------------------------------------------------------------------------------------------------------------
 @fn void SpiSlaveRunActiveState(void)
 
@@ -157,51 +294,206 @@ State Machine Function Definitions
 /* What does this state do? */
 static void SpiSlaveSM_Idle(void)
 {
-	static u8 u8Test = 0x00;
+	u8 au8DebugScanf[3];
+	u8 *pPoint = NULL;
 	
-	
-	AT91C_BASE_US2->US_THR = u8Test++;
-//	AT91C_BASE_US2->US_THR = 0x32;
-	
-	if(RX_READY)
+	if(bSlaveRound || bWhoFirst)
 	{
-		SpiSlave_pfStateMachine = SpiSlaveSM_RX_CB;
+		if(DebugScanf(au8DebugScanf))
+		{
+			switch(au8DebugScanf[0])
+			{
+				case '1':
+				{
+					pPoint = &au8GameInterface[4][8];
+					break;
+				}
+				
+				case '2':
+				{
+					pPoint = &au8GameInterface[4][24];
+					break;
+				}
+				
+				case '3':
+				{
+					pPoint = &au8GameInterface[4][40];
+					break;
+				}
+				
+				case '4':
+				{
+					pPoint = &au8GameInterface[11][8];
+					break;
+				}
+				
+				case '5':
+				{
+					pPoint = &au8GameInterface[11][24];
+					break;
+				}
+				
+				case '6':
+				{
+					pPoint = &au8GameInterface[11][40];
+					break;
+				}
+				
+				case '7':
+				{
+					pPoint = &au8GameInterface[18][8];
+					break;
+				}
+				
+				case '8':
+				{
+					pPoint = &au8GameInterface[18][24];
+					break;
+				}
+				
+				case '9':
+				{
+					pPoint = &au8GameInterface[18][40];
+					break;
+				}
+				
+				default:
+				{
+					DebugPrintf("\n\rInput command error!\n\rYour Input:");
+					break;
+				}
+			}
+		}
+		
+		if(pPoint != NULL)
+		{
+			if( (*pPoint != 'X') && (*pPoint != 'O') )
+			{
+					bSlaveRound = FALSE;
+					*pPoint = 'O';
+					DebugPrintGame();
+					AT91C_BASE_US2->US_THR = au8DebugScanf[0];
+					SpiGameFinshCheck();
+			}
+			else
+			{
+				DebugPrintf("\n\rInput command error!\n\rYour Input:");
+			}
+		}
 	}
+	
 } /* end SpiSlaveSM_Idle() */
 
 
 /* SpiSlaveSM_RX_CB */
-static void SpiSlaveSM_RX_CB(void)
+static void SpiSlave_RX_CB(void)
 {
 	static u8 u8Test;
+	u8 *pPoint = NULL;
 	u8Test = SpiGetRHR();
 	
-	switch(u8Test)
+	if(!bSlaveRound || bWhoFirst)
 	{
-		case 0x00:
-		case 0x01:
-		case 0x02:
-		case 0x10:
-		case 0x11:
-		case 0x12:
-		case 0x20:
-		case 0x21:
-		case 0x22:
-			DebugPrintNumber( (u32)u8Test );
-			DebugLineFeed();
-			break;
+		switch(u8Test)
+		{
+			/* Right commands */
+			case 0x00:
+			{
+				pPoint = &au8GameInterface[4][8];
+				break;
+			}
 			
-		case 0xF0:
-			DebugPrintf("Format error!\n\r");
-			break;
+			case 0x01:
+			{
+				pPoint = &au8GameInterface[4][24];
+				break;
+			}
 			
-		default:
-			break;
+			case 0x02:
+			{
+
+				pPoint = &au8GameInterface[4][40];
+				break;
+			}
+			
+			case 0x10:
+			{
+
+				pPoint = &au8GameInterface[11][8];
+				break;
+			}
+			
+			case 0x11:
+			{
+
+				pPoint = &au8GameInterface[11][24];
+				break;
+			}
+			
+			case 0x12:
+			{
+				pPoint = &au8GameInterface[11][40];
+				break;
+			}
+			
+			case 0x20:
+			{
+				pPoint = &au8GameInterface[18][8];
+				break;
+			}
+			
+			case 0x21:
+			{
+				pPoint = &au8GameInterface[18][24];
+				break;
+			}
+			
+			case 0x22:
+			{
+				pPoint = &au8GameInterface[18][40];
+				break;
+			}
+			
+			case 0xF0:
+			{
+				AT91C_BASE_US2->US_THR = 'N';
+				break;
+			}
+				
+			default:
+			{
+				break;
+			}
+		}
 	}
 	
-	LedToggle(GREEN);
+	if(u8Test == 0x0F)
+	{
+		SET_SRDY();
+	}
 	
-	SpiSlave_pfStateMachine = SpiSlaveSM_Idle;
+	if(pPoint != NULL)
+	{
+		if( (*pPoint != 'X') && (*pPoint != 'O') )
+		{
+				bSlaveRound = TRUE;
+				*pPoint = 'X';
+				DebugPrintGame();
+				AT91C_BASE_US2->US_THR = 'Y';
+				
+				if(bWhoFirst)
+				{
+					bWhoFirst = FALSE;
+				}
+				
+				SpiGameFinshCheck();
+		}
+		else
+		{
+			AT91C_BASE_US2->US_THR = 'N';
+		}
+	}
+	
 } /* end SpiSlaveSM_RX_CB() */
 
 /* Wait for Spi slave sync */
@@ -227,11 +519,61 @@ static void SpiSlaveSM_Sync(void)
 		LedOff(BLUE);
 		CLR_MRDY();
 		u8Wait = 255;
+		DebugPrintGame();
 		SpiSlave_pfStateMachine = SpiSlaveSM_Idle;
 	}
 	
 } /* end SpiSlaveSM_Sync() */
 
+/* Game finish, press button0 to start new round */
+static void GameFinishSM(void)
+{
+	static u8 u8TimeCount = 255;
+	
+	if(WasButtonPressed(BUTTON0))
+	{
+		ButtonAcknowledge(BUTTON0);
+		
+		bWhoFirst = TRUE;
+		u8TimeCount = 255;
+		au8GameInterface[4][8]    = '1';
+		au8GameInterface[4][24]   = '2';
+		au8GameInterface[4][40]   = '3';
+		au8GameInterface[11][8]   = '4';
+		au8GameInterface[11][24]  = '5';
+		au8GameInterface[11][40]  = '6';
+		au8GameInterface[18][8]   = '7';
+		au8GameInterface[18][24]  = '8';
+		au8GameInterface[18][40]  = '9';
+		LedOff(WHITE);
+		LedOff(PURPLE);
+		LedOff(BLUE);
+		LedOff(YELLOW);
+		LedOff(GREEN);
+		LedOff(CYAN);
+		LedOff(ORANGE);
+		LedOff(RED);
+		
+		DebugLineFeed();
+		DebugPrintGame();
+		
+		SpiSlave_pfStateMachine = SpiSlaveSM_Idle;
+	}
+	
+	if(--u8TimeCount == 0)
+	{
+		u8TimeCount = 255;
+		LedToggle(WHITE);
+		LedToggle(PURPLE);
+		LedToggle(BLUE);
+		LedToggle(YELLOW);
+		LedToggle(GREEN);
+		LedToggle(CYAN);
+		LedToggle(ORANGE);
+		LedToggle(RED);
+	}
+	
+} /* end GameFinishSM */
 
 /*-------------------------------------------------------------------------------------------------------------------*/
 /* Handle an error */

@@ -20,7 +20,7 @@ Stop=1
 Freq=10000000
 MultiCoreRunAll=1
 [DebugChecksum]
-Checksum=-867028582
+Checksum=1109634667
 [CodeCoverage]
 Enabled=_ 0
 [Exceptions]
@@ -55,8 +55,9 @@ ITMlogFile=$PROJ_DIR$\ITM.log
 [watch_formats]
 Fmt0={W}2:u32Test	4	0
 Fmt1={W}3:'3'	4	0
-Fmt2={W}3:bResult	3	0
-Fmt3={W}3:u8Count	3	0
+Fmt2={W}3:0xCE	5	0
+Fmt3={W}3:bResult	3	0
+Fmt4={W}3:u8Count	3	0
 [SWOTraceWindow]
 PcSampling=0
 InterruptLogs=0

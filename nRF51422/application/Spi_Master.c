@@ -120,7 +120,7 @@ void SpiMasterInitialize(void)
 	NRF_GPIO->OUTCLR         =      P0_13_ANT_USPI2_MOSI;
 	
 	/* ENABLE SPI0 AND DISABLE TWI0 (They use the same pins) */
-	NRF_GPIO->OUTCLR         =      P0_10_ANT_CS;
+	NRF_GPIO->OUTSET         =      P0_10_ANT_CS;
 	NRF_TWI0->ENABLE         =      TWI_ENABLE_ENABLE_Disabled << TWI_ENABLE_ENABLE_Pos;
 	NRF_SPI0->ENABLE         =      SPI_ENABLE_ENABLE_Enabled << SPI_ENABLE_ENABLE_Pos;
 	
@@ -175,6 +175,7 @@ State Machine Function Definitions
 static void SpiMasterSM_Idle(void)
 {
 	static u16 u16LedIndicateTime = 30000;
+	static u16 u16Test = 5000;
 	
 	/* Green Led indicate state machine running */
 	u16LedIndicateTime--;
@@ -202,7 +203,11 @@ static void SpiMasterSM_Idle(void)
 		
 		case ANT_MRL_SRL: // Slave want to send message
 		{
-			NRF_SPI0->TXD    = 0xFF;
+			if(--u16Test == 0)
+			{
+				u16Test = 5000;
+				NRF_SPI0->TXD    = 0x0F;
+			}
 			break;
 		}
 		
@@ -213,6 +218,7 @@ static void SpiMasterSM_Idle(void)
 			LedOff(BLUE);
 			LedOn(YELLOW);
 			u16LedIndicateTime = 30000;
+			NRF_GPIO->OUTSET = P0_10_ANT_CS;
 			SpiMaster_pfStateMachine = SpiMasterSM_Sync;
 			break;
 		}
@@ -282,6 +288,7 @@ static void SpiMasterSM_Sync(void)
 		if( ANT_MR_AND_SR_STAT == ANT_MRH_SRL )
 		{
 			bRequest = true;
+			NRF_GPIO->OUTCLR = P0_10_ANT_CS;
 			LedOff(YELLOW);
 			LedOff(GREEN);
 			LedOn(BLUE);

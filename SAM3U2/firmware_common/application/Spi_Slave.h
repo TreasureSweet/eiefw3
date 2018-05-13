@@ -35,20 +35,22 @@ u8 SpiGetRHR(void);
 /*--------------------------------------------------------------------------------------------------------------------*/
 void SpiSlaveInitialize(void);
 void SpiSlaveRunActiveState(void);
-
+void SpiMessageHandle(void);
+void SpiGameFinshCheck(void);
 
 /*------------------------------------------------------------------------------------------------------------------*/
 /*! @privatesection */                                                                                            
 /*--------------------------------------------------------------------------------------------------------------------*/
-
+static void DebugPrintGame(void);
+static void SpiSlave_RX_CB(void);
 
 /***********************************************************************************************************************
 State Machine Declarations
 ***********************************************************************************************************************/
-static void SpiSlaveSM_Idle(void);    
-static void SpiSlaveSM_Error(void);         
-static void SpiSlaveSM_RX_CB(void);
+static void SpiSlaveSM_Idle(void);
+static void SpiSlaveSM_Error(void);
 static void SpiSlaveSM_Sync(void);
+static void GameFinishSM(void);
 
 
 /**********************************************************************************************************************
