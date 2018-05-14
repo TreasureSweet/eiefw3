@@ -101,7 +101,6 @@ void main(void)
     UserApp2RunActiveState();
     UserApp3RunActiveState();
 	SpiSlaveRunActiveState();
-	SpiMessageHandle();
     
     HEARTBEAT_OFF();
 

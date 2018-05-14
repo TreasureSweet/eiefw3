@@ -55,8 +55,22 @@ static u8 au8GameInterface[][51] =
 	"0               |               |               \n\r"
 };
 
+static u8 *pau8GameAddr[] = 
+{
+	&au8GameInterface[4][8],
+	&au8GameInterface[4][24],
+	&au8GameInterface[4][40],
+	&au8GameInterface[11][8],
+	&au8GameInterface[11][24],
+	&au8GameInterface[11][40],
+	&au8GameInterface[18][8],
+	&au8GameInterface[18][24],
+	&au8GameInterface[18][40],
+};
+
 static bool bSlaveRound = TRUE;
 static bool bWhoFirst = TRUE;
+static u8 *pGameSelectAddr = NULL;
 
 /*--------------------------------------------------------------------------------------------------------------------*/
 /* Existing variables (defined in other files -- should all contain the "extern" keyword) */
@@ -110,10 +124,12 @@ u8 SpiGetRHR(void)
 */
 static void DebugPrintGame(void)
 {
+	/* Print the Two-dimensional game array */
 	for(u8 i = sizeof(au8GameInterface) / 51, *pu8Point = au8GameInterface[0]; i; i--, pu8Point += 51)
 	{
 		DebugPrintf(pu8Point);
 	}
+	
 } /* end DebugPrintGame() */
 
 
@@ -149,13 +165,14 @@ void SpiSlaveInitialize(void)
 	/* MRDY & SRDY INIT */
 	AT91C_BASE_PIOB->PIO_SODR = ( PB_24_ANT_SRDY | PB_23_ANT_MRDY);
 	
+	/* LED INIT */
 	LedOff(GREEN);
 	LedOff(BLUE);
 	
 	/* If good initialization, set state to Idle */
 	if( 1 )
 	{
-		LedOn(YELLOW);
+		LedOn(YELLOW); //Wait for sync
 		SpiSlave_pfStateMachine = SpiSlaveSM_Sync;
 	}
 	else
@@ -172,14 +189,33 @@ Do if get rx or need tx
 */
 void SpiMessageHandle(void)
 {
+	// New data has been storaged in THR register
 	if( (AT91C_BASE_US2->US_CSR & AT91C_US_TXEMPTY) == 0 )
 	{
 		CLR_SRDY();
 	}
 	
+	// Get new data from spi
 	if(RX_READY)
 	{	
 		SpiSlave_RX_CB();
+	}
+	
+	// Handle the select address command for game
+	if( (*pGameSelectAddr >= '1') && (*pGameSelectAddr <= '9') )
+	{
+		AT91C_BASE_US2->US_THR = *pGameSelectAddr;
+		
+		if(bSlaveRound)
+		{
+			*pGameSelectAddr = 'O';
+		}
+		else
+		{
+			*pGameSelectAddr = 'X';
+		}
+		
+		SpiGameFinshCheck();
 	}
 	
 } /* end SpiMessageHandle() */
@@ -189,39 +225,50 @@ Check if one player has won
 */
 void SpiGameFinshCheck(void)
 {
-	static u8 u8RoundTimes = 0;
-	static bool bFinish = FALSE;
-	u8 au8Result[8];
+	static u8 u8RoundTimes = 0;   // If game has run 9 rounds and no one win, that's draw
+	static bool bFinish = FALSE;  // Check if someone win
+	u8 au8Result[8];              // 8 win probability
 	
+	/* Print */
+	DebugLineFeed();
+	DebugPrintGame();
+	
+	/* Every time run this api, game round add 1 */
 	u8RoundTimes++;
 	
-	au8Result[0] = au8GameInterface[4][8]  & au8GameInterface[4][24]  & au8GameInterface[4][40];
-	au8Result[1] = au8GameInterface[11][8] & au8GameInterface[11][24] & au8GameInterface[11][40];
-	au8Result[2] = au8GameInterface[18][8] & au8GameInterface[18][24] & au8GameInterface[18][40];
-	au8Result[3] = au8GameInterface[4][8]  & au8GameInterface[11][8]  & au8GameInterface[18][8];
-	au8Result[4] = au8GameInterface[4][24] & au8GameInterface[11][24] & au8GameInterface[18][24];
-	au8Result[5] = au8GameInterface[4][40] & au8GameInterface[11][40] & au8GameInterface[18][40];
-	au8Result[6] = au8GameInterface[4][8]  & au8GameInterface[11][24] & au8GameInterface[18][40];
-	au8Result[7] = au8GameInterface[4][40] & au8GameInterface[11][24] & au8GameInterface[18][8];
+	/*------If three variable <&> and the result is 'X' or 'O', that means someone win----------*/
+	// Get the <&> result
+	au8Result[0] = (*pau8GameAddr[0]) & (*pau8GameAddr[1]) & (*pau8GameAddr[2]);
+	au8Result[1] = (*pau8GameAddr[3]) & (*pau8GameAddr[4]) & (*pau8GameAddr[5]);
+	au8Result[2] = (*pau8GameAddr[6]) & (*pau8GameAddr[7]) & (*pau8GameAddr[8]);
+	au8Result[3] = (*pau8GameAddr[0]) & (*pau8GameAddr[3]) & (*pau8GameAddr[6]);
+	au8Result[4] = (*pau8GameAddr[1]) & (*pau8GameAddr[4]) & (*pau8GameAddr[7]);
+	au8Result[5] = (*pau8GameAddr[2]) & (*pau8GameAddr[5]) & (*pau8GameAddr[8]);
+	au8Result[6] = (*pau8GameAddr[0]) & (*pau8GameAddr[4]) & (*pau8GameAddr[8]);
+	au8Result[7] = (*pau8GameAddr[2]) & (*pau8GameAddr[4]) & (*pau8GameAddr[6]);
 	
+	// Check the <&> result
 	for(u8 i = sizeof(au8Result); i; i--)
 	{
-		if( (au8Result[i] == 'X') ) //Master
+		if( (au8Result[i-1] == 'X') ) //Master win
 		{
 			DebugPrintf("\n\rBLE win!\n\r");
 			bFinish = TRUE;
 		}
 		
-		if( (au8Result[i] == 'O') ) //Slave
+		if( (au8Result[i-1] == 'O') ) //Slave win
 		{
 			DebugPrintf("\n\rYou win!\n\r");
 			bFinish = TRUE;
 		}
 	}
+	/*-----------------------------------------Finish--------------------------------------------*/
 	
-	if(bFinish)
+	/* Game finish or not finish, 4 probability */
+	if(bFinish) //Finish, someone win
 	{
 		bFinish = FALSE;
+		u8RoundTimes = 0;
 		LedOff(WHITE);
 		LedOff(PURPLE);
 		LedOff(BLUE);
@@ -232,7 +279,7 @@ void SpiGameFinshCheck(void)
 		LedOff(RED);
 		SpiSlave_pfStateMachine = GameFinishSM;
 	}
-	else if(u8RoundTimes == 9)
+	else if(u8RoundTimes == 9) //Finish, draw
 	{
 		LedOff(WHITE);
 		LedOff(PURPLE);
@@ -245,17 +292,21 @@ void SpiGameFinshCheck(void)
 		DebugPrintf("\n\rDraw!\n\r");
 		SpiSlave_pfStateMachine = GameFinishSM;
 	}
-	else
+	else //Not finish, print notes
 	{
-		if(!bSlaveRound)
+		/* Change the round so that another one can't input */
+		if(bSlaveRound)
 		{
+			bSlaveRound = FALSE;
 			DebugPrintf("\n\rWait Ble input\n\r");
 		}
 		else
 		{
+			bSlaveRound = TRUE;
 			DebugPrintf("\n\rBLE Finish\n\rYour input:");
-		}
-	}
+		} /* end if(bSlaveRound) */
+		
+	} /* end if(bFinish) */
 	
 } /* end SpiGameFinshCheck() */
 
@@ -278,7 +329,8 @@ Promises:
 void SpiSlaveRunActiveState(void)
 {
 	SpiSlave_pfStateMachine();
-
+	SpiMessageHandle();
+	
 } /* end SpiSlaveRunActiveState */
 
 
@@ -295,92 +347,32 @@ State Machine Function Definitions
 static void SpiSlaveSM_Idle(void)
 {
 	u8 au8DebugScanf[3];
-	u8 *pPoint = NULL;
 	
+	/* Check if this is the slave round */
 	if(bSlaveRound || bWhoFirst)
 	{
 		if(DebugScanf(au8DebugScanf))
 		{
-			switch(au8DebugScanf[0])
+			if( (au8DebugScanf[0] >= '1') && (au8DebugScanf[0] <= '9') )
 			{
-				case '1':
-				{
-					pPoint = &au8GameInterface[4][8];
-					break;
-				}
+				pGameSelectAddr = pau8GameAddr[au8DebugScanf[0] - 49];
 				
-				case '2':
+				/* If this is the fist input, change the round bool varibable */
+				if(bWhoFirst)
 				{
-					pPoint = &au8GameInterface[4][24];
-					break;
-				}
-				
-				case '3':
-				{
-					pPoint = &au8GameInterface[4][40];
-					break;
-				}
-				
-				case '4':
-				{
-					pPoint = &au8GameInterface[11][8];
-					break;
-				}
-				
-				case '5':
-				{
-					pPoint = &au8GameInterface[11][24];
-					break;
-				}
-				
-				case '6':
-				{
-					pPoint = &au8GameInterface[11][40];
-					break;
-				}
-				
-				case '7':
-				{
-					pPoint = &au8GameInterface[18][8];
-					break;
-				}
-				
-				case '8':
-				{
-					pPoint = &au8GameInterface[18][24];
-					break;
-				}
-				
-				case '9':
-				{
-					pPoint = &au8GameInterface[18][40];
-					break;
-				}
-				
-				default:
-				{
-					DebugPrintf("\n\rInput command error!\n\rYour Input:");
-					break;
+					bWhoFirst = FALSE;
+					bSlaveRound = TRUE;
 				}
 			}
-		}
-		
-		if(pPoint != NULL)
-		{
-			if( (*pPoint != 'X') && (*pPoint != 'O') )
-			{
-					bSlaveRound = FALSE;
-					*pPoint = 'O';
-					DebugPrintGame();
-					AT91C_BASE_US2->US_THR = au8DebugScanf[0];
-					SpiGameFinshCheck();
-			}
-			else
+			
+			if( (*pGameSelectAddr == 'X') || (*pGameSelectAddr == 'O') || (pGameSelectAddr == NULL) )
 			{
 				DebugPrintf("\n\rInput command error!\n\rYour Input:");
 			}
-		}
-	}
+			
+		} /* end if(DebugScanf(au8DebugScanf) */
+		
+	} /* end if(bSlaveRound || bWhoFirst) */
 	
 } /* end SpiSlaveSM_Idle() */
 
@@ -389,109 +381,40 @@ static void SpiSlaveSM_Idle(void)
 static void SpiSlave_RX_CB(void)
 {
 	static u8 u8Test;
-	u8 *pPoint = NULL;
+	
 	u8Test = SpiGetRHR();
 	
+	/* Check if this is the master round */
 	if(!bSlaveRound || bWhoFirst)
 	{
-		switch(u8Test)
+		if( (u8Test >= '1') && (u8Test <= '9') )
 		{
-			/* Right commands */
-			case 0x00:
+			pGameSelectAddr = pau8GameAddr[u8Test - 49];
+			
+			/* If this is the fist input, change the round bool varibable */
+			if(bWhoFirst)
 			{
-				pPoint = &au8GameInterface[4][8];
-				break;
+				bWhoFirst = FALSE;
+				bSlaveRound = FALSE;
 			}
 			
-			case 0x01:
-			{
-				pPoint = &au8GameInterface[4][24];
-				break;
-			}
-			
-			case 0x02:
-			{
-
-				pPoint = &au8GameInterface[4][40];
-				break;
-			}
-			
-			case 0x10:
-			{
-
-				pPoint = &au8GameInterface[11][8];
-				break;
-			}
-			
-			case 0x11:
-			{
-
-				pPoint = &au8GameInterface[11][24];
-				break;
-			}
-			
-			case 0x12:
-			{
-				pPoint = &au8GameInterface[11][40];
-				break;
-			}
-			
-			case 0x20:
-			{
-				pPoint = &au8GameInterface[18][8];
-				break;
-			}
-			
-			case 0x21:
-			{
-				pPoint = &au8GameInterface[18][24];
-				break;
-			}
-			
-			case 0x22:
-			{
-				pPoint = &au8GameInterface[18][40];
-				break;
-			}
-			
-			case 0xF0:
+			if( (*pGameSelectAddr == 'X') || (*pGameSelectAddr == 'O') )
 			{
 				AT91C_BASE_US2->US_THR = 'N';
-				break;
-			}
-				
-			default:
-			{
-				break;
 			}
 		}
-	}
-	
-	if(u8Test == 0x0F)
-	{
-		SET_SRDY();
-	}
-	
-	if(pPoint != NULL)
-	{
-		if( (*pPoint != 'X') && (*pPoint != 'O') )
-		{
-				bSlaveRound = TRUE;
-				*pPoint = 'X';
-				DebugPrintGame();
-				AT91C_BASE_US2->US_THR = 'Y';
-				
-				if(bWhoFirst)
-				{
-					bWhoFirst = FALSE;
-				}
-				
-				SpiGameFinshCheck();
-		}
-		else
+		
+		if(u8Test == 0xF0)
 		{
 			AT91C_BASE_US2->US_THR = 'N';
 		}
+		
+	}
+	
+	/* Slave THR send successfully, then turn down SRDY */
+	if(u8Test == 0x0F)
+	{
+		SET_SRDY();
 	}
 	
 } /* end SpiSlaveSM_RX_CB() */
@@ -501,6 +424,9 @@ static void SpiSlaveSM_Sync(void)
 {
 	static u8 u8Wait = 255;
 	
+	/* Give time to nrf51 for check pin state */
+	// First MRDY keeps high, SRDY turn to low. Ready for sync (In nrf51 means: ANT_MRH_SRL)
+	// Led BLUE on
 	if(--u8Wait == 155)
 	{
 		CLR_SRDY();
@@ -508,11 +434,19 @@ static void SpiSlaveSM_Sync(void)
 		LedOff(YELLOW);
 	}
 	
+	// Next, MRDY keeps high, SRDY return to high. Start sync,
+	// nrf51 start sending test message. (In nrf51 means: ANT_MRH_SRH)
 	if(u8Wait == 0)
 	{
 		SET_SRDY();
 	}
+	/* End time count */
 	
+	/* RX_READY turns to 1 means slave get the test message,
+	   so request to nrf51 that sync finish and jump out this statemachine,
+	   LED BLUE off
+	*/
+	// Finally, MRDY turn to low, SRDY keeps high. Sync finish (In nrf51 means: ANT_MRL_SRH)
 	if(RX_READY)
 	{
 		SpiGetRHR();
@@ -530,21 +464,28 @@ static void GameFinishSM(void)
 {
 	static u8 u8TimeCount = 255;
 	
+	/* Button0 to restart game */
 	if(WasButtonPressed(BUTTON0))
 	{
 		ButtonAcknowledge(BUTTON0);
 		
+		/* variable init */
 		bWhoFirst = TRUE;
 		u8TimeCount = 255;
-		au8GameInterface[4][8]    = '1';
-		au8GameInterface[4][24]   = '2';
-		au8GameInterface[4][40]   = '3';
-		au8GameInterface[11][8]   = '4';
-		au8GameInterface[11][24]  = '5';
-		au8GameInterface[11][40]  = '6';
-		au8GameInterface[18][8]   = '7';
-		au8GameInterface[18][24]  = '8';
-		au8GameInterface[18][40]  = '9';
+		pGameSelectAddr = NULL;
+		
+		/* game array init */
+		*pau8GameAddr[0] = '1';
+		*pau8GameAddr[1] = '2';
+		*pau8GameAddr[2] = '3';
+		*pau8GameAddr[3] = '4';
+		*pau8GameAddr[4] = '5';
+		*pau8GameAddr[5] = '6';
+		*pau8GameAddr[6] = '7';
+		*pau8GameAddr[7] = '8';
+		*pau8GameAddr[8] = '9';
+		
+		/* led init */
 		LedOff(WHITE);
 		LedOff(PURPLE);
 		LedOff(BLUE);
@@ -554,12 +495,16 @@ static void GameFinishSM(void)
 		LedOff(ORANGE);
 		LedOff(RED);
 		
+		/* print game interface */
 		DebugLineFeed();
 		DebugPrintGame();
 		
+		/* jump out of this statemachine */
 		SpiSlave_pfStateMachine = SpiSlaveSM_Idle;
-	}
+		
+	} /* end Button0 */
 	
+	/* toggle leds every 255ms */
 	if(--u8TimeCount == 0)
 	{
 		u8TimeCount = 255;
@@ -571,7 +516,8 @@ static void GameFinishSM(void)
 		LedToggle(CYAN);
 		LedToggle(ORANGE);
 		LedToggle(RED);
-	}
+		
+	} /* end leds toggle */
 	
 } /* end GameFinishSM */
 
